@@ -39,6 +39,154 @@ var register = make(chan *websocket.Conn)
 var broadcast = make(chan string)
 var unregister = make(chan *websocket.Conn)
 
+func main() {
+
+	// Create and connect to DB
+	db, err := bolt.Open("score.db", 0600, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	store, err := NewStore(db, "score")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	app := fiber.New()
+
+	app.Static("/", "./public")
+	app.Get("/api/score/", store.GetAllHandler())
+
+	app.Use(func(c *fiber.Ctx) error {
+		if websocket.IsWebSocketUpgrade(c) { // Returns true if the client requested upgrade to the WebSocket protocol
+			return c.Next()
+		}
+		return c.SendStatus(fiber.StatusUpgradeRequired)
+	})
+
+	go runHub(store)
+
+	app.Get("/ws", websocket.New(func(c *websocket.Conn) {
+		// When the function returns, unregister the client and close the connection
+		defer func() {
+			unregister <- c
+			c.Close()
+		}()
+
+		// Register the client
+		register <- c
+
+		for {
+			messageType, message, err := c.ReadMessage()
+			if err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					log.Println("read error:", err)
+				}
+
+				return // Calls the deferred function, i.e. closes the connection on error
+			}
+
+			if messageType == websocket.TextMessage {
+				// Broadcast the received message
+				broadcast <- string(message)
+			} else {
+				log.Println("websocket message received of type", messageType)
+			}
+		}
+	}))
+
+	addr := flag.String("addr", ":8080", "http service address")
+	flag.Parse()
+	log.Fatal(app.Listen(*addr))
+}
+
+func NewStore(db *bolt.DB, backetName string) (*store, error) {
+	st := &store{
+		backetName: []byte(backetName),
+		db:         db,
+	}
+	if db == nil {
+		return nil, errors.New("DB is not ready")
+	}
+
+	err := st.db.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists([]byte(backetName))
+		return err
+	})
+	return st, err
+}
+
+func (st *store) Put(key time.Time, val interface{}) error {
+	log.Printf("PUT: key: %v, val: %v\n", key, val)
+	bytesVal, err := json.Marshal(val)
+	if err != nil {
+		return err
+	}
+	bytesKey := []byte(key.Format(time.RFC3339))
+	return st.db.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(st.backetName).Put(bytesKey, bytesVal)
+	})
+}
+
+func (st *store) Get(key string, val interface{}) error {
+	log.Printf("GET: key: %v\n", key)
+	bytesKey := []byte(key)
+	return st.db.View(func(tx *bolt.Tx) error {
+		bytesVal := tx.Bucket(st.backetName).Get(bytesKey)
+		return json.Unmarshal(bytesVal, &val)
+	})
+}
+
+func (st *store) GetAllHandler() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		log.Println("gel all scores")
+		res, err := st.GeScoresList()
+		if err != nil {
+			log.Println("ERROR: cannot get all scores", err)
+			return c.Context().Err()
+		}
+		return c.Status(fiber.StatusOK).JSON(res)
+	}
+}
+
+func (st *store) GetTotalScore() (int, error) {
+	log.Printf("GET: total\n")
+	res := 0
+	err := st.db.View(func(tx *bolt.Tx) error {
+		return tx.Bucket(st.backetName).ForEach(func(k, v []byte) error {
+			s := score{}
+			err := json.Unmarshal(v, &s)
+			if err != nil {
+				return err
+			}
+			res = res + s.Points
+			return nil
+		})
+	})
+	log.Printf("total: %d\n", res)
+	return res, err
+}
+
+func (st *store) GeScoresList() ([]score, error) {
+	log.Printf("GET: list\n")
+	res := []score{}
+	err := st.db.View(func(tx *bolt.Tx) error {
+		return tx.Bucket(st.backetName).ForEach(func(k, v []byte) error {
+			s := score{}
+			err := json.Unmarshal(v, &s)
+			if err != nil {
+				return err
+			}
+			res = append(res, s)
+			return nil
+		})
+	})
+	reverse(res)
+	log.Printf("list: %v\n", res)
+	return res, err
+}
+
 func runHub(st *store) {
 	for {
 		select {
@@ -88,7 +236,7 @@ func runHub(st *store) {
 	}
 }
 
-func send(connection *websocket.Conn, c *client, s []score) { // send to each client in parallel so we don't block on a slow client
+func send(connection *websocket.Conn, c *client, s interface{}) { // send to each client in parallel so we don't block on a slow client
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.isClosing {
@@ -107,151 +255,6 @@ func send(connection *websocket.Conn, c *client, s []score) { // send to each cl
 		connection.Close()
 		unregister <- connection
 	}
-}
-
-func main() {
-
-	// Create and connect to DB
-	db, err := bolt.Open("score.db", 0600, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
-
-	store, err := NewStore(db, "score")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	app := fiber.New()
-
-	app.Static("/", "./public")
-
-	app.Use(func(c *fiber.Ctx) error {
-		if websocket.IsWebSocketUpgrade(c) { // Returns true if the client requested upgrade to the WebSocket protocol
-			return c.Next()
-		}
-		return c.SendStatus(fiber.StatusUpgradeRequired)
-	})
-
-	go runHub(store)
-
-	app.Get("/ws", websocket.New(func(c *websocket.Conn) {
-		// When the function returns, unregister the client and close the connection
-		defer func() {
-			unregister <- c
-			c.Close()
-		}()
-
-		// Register the client
-		register <- c
-
-		for {
-			messageType, message, err := c.ReadMessage()
-			if err != nil {
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-					log.Println("read error:", err)
-				}
-
-				return // Calls the deferred function, i.e. closes the connection on error
-			}
-
-			if messageType == websocket.TextMessage {
-				// Broadcast the received message
-				broadcast <- string(message)
-			} else {
-				log.Println("websocket message received of type", messageType)
-			}
-		}
-	}))
-
-	app.Get("/api/score/", func(c *fiber.Ctx) error {
-		log.Println("gel all scores")
-		res, err := store.GeScoresList()
-		if err != nil {
-			log.Println("ERROR: cannot get all scores", err)
-			return c.Context().Err()
-		}
-		return c.Status(fiber.StatusOK).JSON(res)
-	})
-
-	addr := flag.String("addr", ":8080", "http service address")
-	flag.Parse()
-	log.Fatal(app.Listen(*addr))
-}
-
-func NewStore(db *bolt.DB, backetName string) (*store, error) {
-	st := &store{
-		backetName: []byte(backetName),
-		db:         db,
-	}
-	if db == nil {
-		return nil, errors.New("DB is not ready")
-	}
-
-	err := st.db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte(backetName))
-		return err
-	})
-	return st, err
-}
-
-func (st *store) Put(key time.Time, val interface{}) error {
-	log.Printf("PUT: key: %v, val: %v\n", key, val)
-	bytesVal, err := json.Marshal(val)
-	if err != nil {
-		return err
-	}
-	bytesKey := []byte(key.Format(time.RFC3339))
-	return st.db.Update(func(tx *bolt.Tx) error {
-		return tx.Bucket(st.backetName).Put(bytesKey, bytesVal)
-	})
-}
-
-func (st *store) Get(key string, val interface{}) error {
-	log.Printf("GET: key: %v\n", key)
-	bytesKey := []byte(key)
-	return st.db.View(func(tx *bolt.Tx) error {
-		bytesVal := tx.Bucket(st.backetName).Get(bytesKey)
-		return json.Unmarshal(bytesVal, &val)
-	})
-}
-
-func (st *store) GetTotalScore() (int, error) {
-	log.Printf("GET: total\n")
-	res := 0
-	err := st.db.View(func(tx *bolt.Tx) error {
-		return tx.Bucket(st.backetName).ForEach(func(k, v []byte) error {
-			s := score{}
-			err := json.Unmarshal(v, &s)
-			if err != nil {
-				return err
-			}
-			res = res + s.Points
-			return nil
-		})
-	})
-	log.Printf("total: %d\n", res)
-	return res, err
-}
-
-func (st *store) GeScoresList() ([]score, error) {
-	log.Printf("GET: list\n")
-	res := []score{}
-	err := st.db.View(func(tx *bolt.Tx) error {
-		return tx.Bucket(st.backetName).ForEach(func(k, v []byte) error {
-			s := score{}
-			err := json.Unmarshal(v, &s)
-			if err != nil {
-				return err
-			}
-			res = append(res, s)
-			return nil
-		})
-	})
-	reverse(res)
-	log.Printf("list: %v\n", res)
-	return res, err
 }
 
 func reverse[S ~[]E, E any](s S) {
