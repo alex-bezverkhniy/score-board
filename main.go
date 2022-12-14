@@ -57,6 +57,8 @@ func main() {
 
 	app.Static("/", "./public")
 	app.Get("/api/score/", store.GetAllHandler())
+	app.Get("/api/score/:starttime/:endtime", store.GetAllHandler())
+	app.Get("/api/score/:starttime", store.GetAllHandler())
 
 	app.Use(func(c *fiber.Ctx) error {
 		if websocket.IsWebSocketUpgrade(c) { // Returns true if the client requested upgrade to the WebSocket protocol
@@ -117,13 +119,42 @@ func NewStore(db *bolt.DB, backetName string) (*store, error) {
 	return st, err
 }
 
+func (st *store) GetAllHandler() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		log.Println("gel all scores")
+
+		startTimeStr := c.Params("starttime")
+		endTimeStr := c.Params("endtime")
+
+		startTime, err := strToUnixTime(startTimeStr)
+		if err != nil {
+			log.Println("ERROR: cannot parse start time ")
+			return c.Status(fiber.StatusBadRequest).Send([]byte("cannot parse start time"))
+		}
+
+		endTime, err := strToUnixTime(endTimeStr)
+		if err != nil {
+			log.Println("ERROR: cannot parse end time ")
+			return c.Status(fiber.StatusBadRequest).Send([]byte("cannot parse end time"))
+		}
+
+		res, err := st.GeScoresList(startTime, endTime)
+		if err != nil {
+			log.Println("ERROR: cannot get all scores", err)
+			return c.Context().Err()
+		}
+		return c.Status(fiber.StatusOK).JSON(res)
+	}
+}
+
 func (st *store) Put(key time.Time, val interface{}) error {
-	log.Printf("PUT: key: %v, val: %v\n", key, val)
 	bytesVal, err := json.Marshal(val)
 	if err != nil {
 		return err
 	}
-	bytesKey := []byte(key.Format(time.RFC3339))
+	strKey := strconv.FormatInt(key.Unix(), 10)
+	bytesKey := []byte(strKey)
+	log.Printf("PUT: key: %v, val: %v\n", strKey, val)
 	return st.db.Update(func(tx *bolt.Tx) error {
 		return tx.Bucket(st.backetName).Put(bytesKey, bytesVal)
 	})
@@ -136,18 +167,6 @@ func (st *store) Get(key string, val interface{}) error {
 		bytesVal := tx.Bucket(st.backetName).Get(bytesKey)
 		return json.Unmarshal(bytesVal, &val)
 	})
-}
-
-func (st *store) GetAllHandler() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		log.Println("gel all scores")
-		res, err := st.GeScoresList()
-		if err != nil {
-			log.Println("ERROR: cannot get all scores", err)
-			return c.Context().Err()
-		}
-		return c.Status(fiber.StatusOK).JSON(res)
-	}
 }
 
 func (st *store) GetTotalScore() (int, error) {
@@ -168,23 +187,48 @@ func (st *store) GetTotalScore() (int, error) {
 	return res, err
 }
 
-func (st *store) GeScoresList() ([]score, error) {
-	log.Printf("GET: list\n")
+func (st *store) GeScoresList(startDate, endDate *time.Time) ([]score, error) {
+	log.Println("GET: list", startDate, endDate)
 	res := []score{}
 	err := st.db.View(func(tx *bolt.Tx) error {
 		return tx.Bucket(st.backetName).ForEach(func(k, v []byte) error {
-			s := score{}
-			err := json.Unmarshal(v, &s)
-			if err != nil {
-				return err
+			intKey, _ := strconv.Atoi(string(k))
+			// All
+			if startDate == nil && endDate == nil {
+				log.Printf("all key: %v, val: %v \n", intKey, string(v))
+				res = st.appendToResponse(res, v)
+
+				// Filter by start
+			} else if (startDate != nil && endDate == nil) && intKey >= int(startDate.Unix()) {
+				log.Printf("starts at %v ; key: %v, val: %v \n", int(startDate.Unix()), intKey, string(v))
+				res = st.appendToResponse(res, v)
+
+				// Filter by start and end dates
+			} else if intKey >= int(startDate.Unix()) && intKey <= int(endDate.Unix()) {
+				log.Printf("beetwen  %v - %v; key: %v, val: %v \n", int(startDate.Unix()), int(endDate.Unix()), intKey, string(v))
+				res = st.appendToResponse(res, v)
+
+				// 	// Filter by end dates
+				// } else if endDate != nil && intKey <= int(endDate.Unix()) {
+				// 	res = st.appendToResponse(res, v)
 			}
-			res = append(res, s)
+
 			return nil
 		})
 	})
 	reverse(res)
 	log.Printf("list: %v\n", res)
 	return res, err
+}
+
+func (st *store) appendToResponse(res []score, v []byte) []score {
+	s := score{}
+	err := json.Unmarshal(v, &s)
+	if err != nil {
+		log.Println("ERROR: cannot unmarshal and apend record", err)
+	}
+	res = append(res, s)
+	return res
 }
 
 func runHub(st *store) {
@@ -194,7 +238,7 @@ func runHub(st *store) {
 			log.Println("connection registered")
 			c := &client{}
 			clients[connection] = c
-			scoreList, err := st.GeScoresList()
+			scoreList, err := st.GeScoresList(nil, nil)
 			if err != nil {
 				log.Println("ERROR: Cannot put total score", err)
 			}
@@ -215,7 +259,7 @@ func runHub(st *store) {
 				log.Println("ERROR: Cannot put score", err)
 			}
 
-			scoreList, err := st.GeScoresList()
+			scoreList, err := st.GeScoresList(nil, nil)
 			if err != nil {
 				log.Println("ERROR: Cannot put total score", err)
 			}
@@ -260,5 +304,19 @@ func send(connection *websocket.Conn, c *client, s interface{}) { // send to eac
 func reverse[S ~[]E, E any](s S) {
 	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
 		s[i], s[j] = s[j], s[i]
+	}
+}
+
+func strToUnixTime(str string) (*time.Time, error) {
+	if len(str) > 0 {
+		st, err := strconv.Atoi(str)
+		if err != nil {
+			log.Println("ERROR: cannot parse start time ")
+			return nil, err
+		}
+		t := time.Unix(int64(st), 0)
+		return &t, nil
+	} else {
+		return nil, nil
 	}
 }

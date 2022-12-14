@@ -1,1 +1,14 @@
-GET http://localhost:3000/api/health
+### GET all
+GET http://localhost:8080/api/score
+
+
+### Get beetwen
+
+GET http://localhost:8080/api/score/1671037125/1671037135
+
+
+### Get starts at
+
+GET http://localhost:8080/api/score/1671037135
+
+
