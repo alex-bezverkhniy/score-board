@@ -10,8 +10,15 @@
     <script src="/js/bootstrap.bundle.min.js"
         integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
         crossorigin="anonymous"></script>
-    <script type="text/javascript">
+    
+    <script src="/js/jquery-min.js"></script>
+    <script src="/js/underscore-min.js" ></script>
+
+    <script src="/js/backbone-min.js"></script>
+
+    <script type="text/javascript">     
         window.onload = function () {
+
             var conn;
             var msg = document.getElementById("msg");
             var log = document.getElementById("log");
@@ -54,49 +61,49 @@
                 return li
             }
 
-            document.getElementById("form").onsubmit = function () {
-                if (!conn) {
-                    return false;
-                }
-                if (!msg.value) {
-                    return false;
-                }
-                conn.send(msg.value);
-                msg.value = "";
-                return false;
-            };
+            // document.getElementById("form").onsubmit = function () {
+            //     if (!conn) {
+            //         return false;
+            //     }
+            //     if (!msg.value) {
+            //         return false;
+            //     }
+            //     conn.send(msg.value);
+            //     msg.value = "";
+            //     return false;
+            // };
             
 
-            if (window["WebSocket"]) {
-                conn = new WebSocket("ws://" + document.location.host + "/ws");
-                // conn.onopen = function(evt) {
-                //     totalPoints.innerText = "0"
-                // }
-                conn.onclose = function (evt) {
-                    var item = document.createElement("div");
-                    item.innerHTML = "<b>Connection closed.</b>";
-                    appendLog(item);
-                };
-                conn.onmessage = function (evt) {
-                    console.log("GOT event");
-                    // for (var i = 0; i < messages.length; i++) {
-                        var scores = JSON.parse(evt.data)
-                        if (scores != undefined && scores.length > 0) { 
-                            log.innerHTML = "";
-                            var totalPts = 0;
-                            for (var i = 0; i < scores.length; i++) {                            
-                                printScore(scores[i]);
-                                totalPts += scores[i].points
-                            }
-                            totalPoints.innerText = totalPts;
-                        } 
-                    // /}
-                };
-            } else {
-                var item = document.createElement("div");
-                item.innerHTML = "<b>Your browser does not support WebSockets.</b>";
-                appendLog(item);
-            }
+            // if (window["WebSocket"]) {
+            //     conn = new WebSocket("ws://" + document.location.host + "/ws");
+            //     // conn.onopen = function(evt) {
+            //     //     totalPoints.innerText = "0"
+            //     // }
+            //     conn.onclose = function (evt) {
+            //         var item = document.createElement("div");
+            //         item.innerHTML = "<b>Connection closed.</b>";
+            //         appendLog(item);
+            //     };
+            //     conn.onmessage = function (evt) {
+            //         console.log("GOT event");
+            //         // for (var i = 0; i < messages.length; i++) {
+            //             var scores = JSON.parse(evt.data)
+            //             if (scores != undefined && scores.length > 0) { 
+            //                 log.innerHTML = "";
+            //                 var totalPts = 0;
+            //                 for (var i = 0; i < scores.length; i++) {                            
+            //                     printScore(scores[i]);
+            //                     totalPts += scores[i].points
+            //                 }
+            //                 totalPoints.innerText = totalPts;
+            //             } 
+            //         // /}
+            //     };
+            // // } else {
+            //     var item = document.createElement("div");
+            //     item.innerHTML = "<b>Your browser does not support WebSockets.</b>";
+            //     appendLog(item);
+            // }
         };
     </script>
     <style type="text/css">
@@ -295,34 +302,193 @@
                             </svg>
                             Task's log:
                         </h5>
+                        
                         <p class="card-text">
                         <div class="overflow-auto" style="max-height: 50rem;">
                             <ul class="list-group" id="log">
                             </ul>
                         </div>
-
-                        </p>
-                        <!-- <p class="card-text"><small class="text-muted">Last updated 3 mins ago</small></p> -->
+<!-- App {{  -->
+                        <div id='app' class="overflow-auto" style="max-height: 50rem;">
+                        </div>
+<!-- }} -->
+                        </p>                        
                     </div>
                 </div>
             </div>
         </div>
-        <div class="row">
-            <div class="col-md-10 offset-md-1">
-                <form id="form">
-                    <div class="input-group mb-3">                        
-                        <input type="text" id="msg" class="form-control" placeholder="new task"
-                            aria-label="new task" aria-describedby="button-addon2">
-                        <button class="btn btn-outline-secondary" type="submit" id="button-addon2">Add</button>
-                    </div>                                    
-                </form>
-            </div>
-        </div>
     </div>
 
+    <script id='tpl_list' type='text/template'>    
+        <div class="input-group mb-3">                        
+            <input id="startDate" 
+            type="datetime-local" 
+            pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}"
+            class="form-control">
+            <button class="btn btn-outline-secondary" type="submit" id="filter">Filter</button>
+        </div>    
+        <ul class="list-group"></ul>
+        <p></p>
+        <div class="input-group mb-3">                        
+            <input type="text" id="msg" class="form-control" placeholder="New Task"
+                aria-label="new task" aria-describedby="filter">
+            <button class="btn btn-outline-secondary" id="add">Add</button>
+        </div>
+    </script>
+    
+    <script id='tpl_list_item' type='text/template'>
+        <span>
+            <span class="badge bg-success rounded-pill"><%= points %></span>  
+            <span class="text-truncate"><%= task %></span>
+        </span>
+    </script>
+
+<script>
+(function($) {
+var conn;
+var baseURL = '/api/score'
+
+// Model
+
+var Item = Backbone.Model.extend({
+  defaults: {
+    points: 10,
+    task: 'world'
+  }
+});
 
 
+// Collection
 
+var List = Backbone.Collection.extend({
+    url: baseURL,
+    parse: function(data) {
+        console.log("got scores", data);
+        return data;
+    },
+    model: Item
+});
+
+
+// Views
+
+var ItemView = Backbone.View.extend({
+  tagName: 'li',
+  
+  template: _.template($('#tpl_list_item').html()),
+
+  events: {
+  },
+
+  initialize: function() {
+    _.bindAll(this, 'render', 'unrender');
+    this.model.on('change', this.render);
+    this.model.on('remove', this.unrender);
+  },
+
+  render: function() {
+    this.el.classList.add("list-group-item","d-flex","justify-content-between","align-items-center")
+    this.$el.html(this.template(this.model.attributes));
+    return this;
+  },
+
+  unrender: function() {
+    this.$el.remove();
+  },
+
+  remove: function() {
+    this.model.destroy();
+  }
+});
+
+
+var ListView = Backbone.View.extend({
+  el: $('#app'),
+  
+  template: _.template($('#tpl_list').html()),
+
+  events: {
+    'click #filter': 'filter',
+    'click #add': 'addItem'
+  },
+
+  initialize: function() {
+    _.bindAll(this, 'render', 'addItem', 'filter', 'appendItem');
+    this.collection = new List();
+    // this.collection.fetch()
+    this.collection.on('add', this.appendItem);
+    this.startDate = new Date();
+    this.startDate.setHours(0,0,0,0);
+    this.render();
+  },
+
+  render: function() {
+    this.$el.append(this.template());
+    var startDateEl = $('#startDate');
+    var sd = new Date(this.startDate.toString().split('GMT')[0]+' UTC').toISOString().split('.')[0] ;
+    console.log("set current datetime", sd);
+    startDateEl.val(sd);
+    return this;
+  },
+
+  addItem: function() {        
+    if (conn) {
+        var msg = $('#msg');
+        conn.send(msg.val());
+        msg.val("");
+    }
+  },
+
+  filter: function() {    
+    var startDateEl = $('#startDate');
+    var startDate = startDateEl.val();
+    var unixTime = Math.floor(Date.parse(startDate) / 1000)
+    console.log('startDate', unixTime);
+    this.collection.url = baseURL+'/'+unixTime
+    this.collection.fetch();
+  },
+
+  appendItem: function(item) {
+    var itemView = new ItemView({ model: item });
+    $('ul', this.el).append(itemView.render().el);
+  }
+});
+
+var listView = new ListView();
+
+if (window["WebSocket"]) {
+        conn = new WebSocket("ws://" + document.location.host + "/ws");
+        conn.onopen = function(evt) {
+            // totalPoints.innerText = "0"
+            console.log("OPEN");
+        }
+        conn.onclose = function (evt) {
+            // var item = document.createElement("div");
+            // item.innerHTML = "<b>Connection closed.</b>";
+            // appendLog(item);
+            console.log("CLOSE");
+        };
+        conn.onmessage = function (evt) {
+            console.log("GOT event");
+            listView.collection.fetch();
+            // // for (var i = 0; i < messages.length; i++) {
+            //     var scores = JSON.parse(evt.data)
+            //     if (scores != undefined && scores.length > 0) { 
+            //         log.innerHTML = "";
+            //         var totalPts = 0;
+            //         for (var i = 0; i < scores.length; i++) {                            
+            //             printScore(scores[i]);
+            //             totalPts += scores[i].points
+            //         }
+            //         totalPoints.innerText = totalPts;
+            //     } 
+            // // /}
+        };
+    }
+
+})(jQuery);
+
+</script>
 
 </body>
 
