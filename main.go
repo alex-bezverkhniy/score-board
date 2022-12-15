@@ -23,9 +23,10 @@ type (
 	}
 
 	score struct {
-		Points      int    `json:"points"`
-		Task        string `json:"task"`
-		TotalPoints int    `json:"total_points"`
+		AddedAt     time.Time `json:"added_at"`
+		Points      int       `json:"points"`
+		Task        string    `json:"task"`
+		TotalPoints int       `json:"total_points"`
 	}
 
 	store struct {
@@ -196,17 +197,17 @@ func (st *store) GeScoresList(startDate, endDate *time.Time) ([]score, error) {
 			// All
 			if startDate == nil && endDate == nil {
 				log.Printf("all key: %v, val: %v \n", intKey, string(v))
-				res = st.appendToResponse(res, v)
+				res = st.appendToResponse(res, k, v)
 
 				// Filter by start
 			} else if (startDate != nil && endDate == nil) && intKey >= int(startDate.Unix()) {
 				log.Printf("starts at %v ; key: %v, val: %v \n", int(startDate.Unix()), intKey, string(v))
-				res = st.appendToResponse(res, v)
+				res = st.appendToResponse(res, k, v)
 
 				// Filter by start and end dates
 			} else if intKey >= int(startDate.Unix()) && intKey <= int(endDate.Unix()) {
 				log.Printf("beetwen  %v - %v; key: %v, val: %v \n", int(startDate.Unix()), int(endDate.Unix()), intKey, string(v))
-				res = st.appendToResponse(res, v)
+				res = st.appendToResponse(res, k, v)
 
 				// 	// Filter by end dates
 				// } else if endDate != nil && intKey <= int(endDate.Unix()) {
@@ -221,12 +222,17 @@ func (st *store) GeScoresList(startDate, endDate *time.Time) ([]score, error) {
 	return res, err
 }
 
-func (st *store) appendToResponse(res []score, v []byte) []score {
+func (st *store) appendToResponse(res []score, k, v []byte) []score {
 	s := score{}
 	err := json.Unmarshal(v, &s)
 	if err != nil {
 		log.Println("ERROR: cannot unmarshal and apend record", err)
 	}
+	tUnix, err := strconv.Atoi(string(k))
+	if err != nil {
+		log.Println("ERROR: convert time", err)
+	}
+	s.AddedAt = time.Unix(int64(tUnix), 0)
 	res = append(res, s)
 	return res
 }
