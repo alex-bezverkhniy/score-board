@@ -1,100 +1,171 @@
-<!-- See https://github.com/gorilla/websocket/blob/master/examples/chat/home.html -->
-
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<title>Chat Example</title>
-<script type="text/javascript">
-window.onload = function () {
-    var conn;
-    var msg = document.getElementById("msg");
-    var log = document.getElementById("log");
-
-    function appendLog(item) {
-        var doScroll = log.scrollTop > log.scrollHeight - log.clientHeight - 1;
-        log.appendChild(item);
-        if (doScroll) {
-            log.scrollTop = log.scrollHeight - log.clientHeight;
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/css/spectre.min.css">
+    <link rel="stylesheet" href="/css/score-badge.css">
+    <script type="module" src="/js/app.js"></script>
+    <title>Eva's score</title>
+    <style>
+        main {
+            margin-top: 1rem;
         }
-    }
-
-    document.getElementById("form").onsubmit = function () {
-        if (!conn) {
-            return false;
+        footer {
+            margin-top: 3rem;
+            color: #ccc;
         }
-        if (!msg.value) {
-            return false;
+        .card-image {
+            margin-top: 2rem;
+            margin-bottom: 2rem;
         }
-        conn.send(msg.value);
-        msg.value = "";
-        return false;
-    };
-
-    if (window["WebSocket"]) {
-        conn = new WebSocket("ws://" + document.location.host + "/ws");
-        conn.onclose = function (evt) {
-            var item = document.createElement("div");
-            item.innerHTML = "<b>Connection closed.</b>";
-            appendLog(item);
-        };
-        conn.onmessage = function (evt) {
-            var messages = evt.data.split('\n');
-            for (var i = 0; i < messages.length; i++) {
-                var item = document.createElement("div");
-                item.innerText = messages[i];
-                appendLog(item);
-            }
-        };
-    } else {
-        var item = document.createElement("div");
-        item.innerHTML = "<b>Your browser does not support WebSockets.</b>";
-        appendLog(item);
-    }
-};
-</script>
-<style type="text/css">
-html {
-    overflow: hidden;
-}
-
-body {
-    overflow: hidden;
-    padding: 0;
-    margin: 0;
-    width: 100%;
-    height: 100%;
-    background: gray;
-}
-
-#log {
-    background: white;
-    margin: 0;
-    padding: 0.5em 0.5em 0.5em 0.5em;
-    position: absolute;
-    top: 0.5em;
-    left: 0.5em;
-    right: 0.5em;
-    bottom: 3em;
-    overflow: auto;
-}
-
-#form {
-    padding: 0 0.5em 0 0.5em;
-    margin: 0;
-    position: absolute;
-    bottom: 1em;
-    left: 0px;
-    width: 100%;
-    overflow: hidden;
-}
-
-</style>
+        .navbar-section {
+            padding: 1em;
+        }
+    </style>
 </head>
+
 <body>
-<div id="log"></div>
-<form id="form">
-    <input type="submit" value="Send" />
-    <input type="text" id="msg" size="64" autofocus autocomplete="off" />
-</form>
+    <header class="navbar">
+        <section class="navbar-section">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-award"
+            viewBox="0 0 16 16">
+                <path
+                    d="M9.669.864 8 0 6.331.864l-1.858.282-.842 1.68-1.337 1.32L2.6 6l-.306 1.854 1.337 1.32.842 1.68 1.858.282L8 12l1.669-.864 1.858-.282.842-1.68 1.337-1.32L13.4 6l.306-1.854-1.337-1.32-.842-1.68L9.669.864zm1.196 1.193.684 1.365 1.086 1.072L12.387 6l.248 1.506-1.086 1.072-.684 1.365-1.51.229L8 10.874l-1.355-.702-1.51-.229-.684-1.365-1.086-1.072L3.614 6l-.25-1.506 1.087-1.072.684-1.365 1.51-.229L8 1.126l1.356.702 1.509.229z" />
+                <path d="M4 11.794V16l4-1 4 1v-4.206l-2.018.306L8 13.126 6.018 12.1 4 11.794z" />
+            </svg>
+            <a href="..." class="navbar-brand mr-2">Eva's score</a>
+        </section>
+    </header>
+    <main>
+        <div class="container">
+            <div class="columns">
+                <div class="column col-4 col-md-10 col-xl-8 col-mx-auto" id="app">
+                </div>
+            </div>
+        </div>
+        
+    </main>
+    <footer>
+        <div class="columns">
+            <div class="column col-4 col-md-10 col-xl-8 col-mx-auto">
+                Eva's Score 
+            </div>
+        </div>
+    </footer>
+<script type="module">
+import { h, Component, render } from '/js/preact.module.js';
+import htm from '/js/htm.module.js';
+  
+// Initialize htm with Preact
+const html = htm.bind(h);
+
+function StatusBage(props) {
+  var todaysScoreSign = props.todaysScore > 0 ? "+":"-";
+  return html`
+<div class="badge_container">
+    <div class="total_badge">
+        <div class="badge__label" id="totalPoints">
+            ${todaysScoreSign}${props.todaysScore}
+        </div>
+        <div class="badge__label_sm" id="totalPoints">
+            total: ${props.totalScore}
+        </div>
+    </div>
+</div>`;
+}
+
+function TasksLog(props) {
+    
+    return html`
+<table class="table">
+    <thead>
+        <tr>
+            <th>task</th>
+            <th>points</th>
+            <th>date</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr class="active">
+            <td>The Shawshank Redemption</td>
+            <td>Crime, Drama</td>
+            <td>14 October 1994</td>
+        </tr>
+    </tbody>
+</table>`;
+}
+
+class FilterForm extends Component {
+    state = { value: '' };
+
+    onSubmit = e => {
+        alert("Submitted a filter");
+        e.preventDefault();
+    }
+
+    render(_, { value }) {
+        return html`
+<div class="input-group">
+    <span class="input-group-addon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-funnel" viewBox="0 0 16 16">
+            <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2zm1 .5v1.308l4.372 4.858A.5.5 0 0 1 7 8.5v5.306l2-.666V8.5a.5.5 0 0 1 .128-.334L13.5 3.308V2h-11z"/>
+        </svg>                                
+    </span>
+    <input type="datetime-local" class="form-input" placeholder="..."/>
+    <button onClick=${this.onSubmit} class="btn btn-primary input-group-btn">Filter</button>
+</div>
+`
+    }
+}
+
+class AddTaskForm extends Component {
+    state = { value: '' };
+
+    onSubmit = e => {
+        alert("Submitted a task");
+        e.preventDefault();
+    }
+
+    render(_, { value }) {
+        return html`
+<div class="input-group">
+    <span class="input-group-addon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+            class="bi bi-journal-check" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M10.854 6.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 8.793l2.646-2.647a.5.5 0 0 1 .708 0z" />
+            <path d="M3 0h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-1h1v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v1H1V2a2 2 0 0 1 2-2z" />
+            <path d="M1 5v-.5a.5.5 0 0 1 1 0V5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1H1zm0 3v-.5a.5.5 0 0 1 1 0V8h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1H1zm0 3v-.5a.5.5 0 0 1 1 0v.5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1H1z" />
+        </svg>
+    </span>
+    <input type="text" class="form-input" placeholder="..."/>
+    <button onClick=${this.onSubmit}  class="btn btn-primary input-group-btn">Add</button>
+</div>
+
+`
+    }
+}
+
+// Create your app
+const app = html`<div class="card">
+    <div class="card-image">  
+        <${StatusBage} todaysScore="20" totalScore="100" />
+    </div>
+    <div class="card-header">
+        <${FilterForm} />
+    </div>
+    <div class="card-body">
+        <$${TasksLog} />
+    </div>
+    <div class="card-footer">
+        <${AddTaskForm} />
+    </div>       
+</div>`;
+
+  render(app, document.getElementById('app'));
+</script>
 </body>
+
 </html>
