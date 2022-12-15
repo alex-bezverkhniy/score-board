@@ -56,8 +56,12 @@
         </div>
     </footer>
 <script type="module">
-import { h, Component, render } from '/js/preact.module.js';
-import htm from '/js/htm.module.js';
+import { h, Component, render } from 'https://unpkg.com/preact@latest?module';
+import { useState, useEffect } from 'https://unpkg.com/preact@latest/hooks/dist/hooks.module.js?module';
+import htm from 'https://unpkg.com/htm?module'
+// import { h, Component, render } from '/js/preact.module.js';
+// import { useState, useEffect } from 'https://unpkg.com/preact@latest/hooks/dist/hooks.module.js?module';
+// import htm from '/js/htm.module.js';
   
 // Initialize htm with Preact
 const html = htm.bind(h);
@@ -77,8 +81,7 @@ function StatusBage(props) {
 </div>`;
 }
 
-function TasksLog(props) {
-    
+function TasksLog (props) {        
     return html`
 <table class="table">
     <thead>
@@ -89,13 +92,15 @@ function TasksLog(props) {
         </tr>
     </thead>
     <tbody>
-        <tr class="active">
-            <td>The Shawshank Redemption</td>
-            <td>Crime, Drama</td>
-            <td>14 October 1994</td>
+        ${props.tasks.map((task, k) => html`
+        <tr>
+            <td>${task.task}</td>
+            <td>${task.points}</td>
+            <td>${k}</td>
         </tr>
+        `)}
     </tbody>
-</table>`;
+</table>`    
 }
 
 class FilterForm extends Component {
@@ -148,8 +153,23 @@ class AddTaskForm extends Component {
     }
 }
 
-// Create your app
-const app = html`<div class="card">
+// App
+function App() {
+	const [count, setCount] = useState(0);
+    const [tasks, setTasks] = useState([]);
+	useEffect(() => {
+		setCount(1);
+        fetch("/api/score")
+        .then((data) => {            
+            return data.json()
+        })
+        .then((json) => {            
+            console.log(json);
+            setTasks(json);       
+        });
+	}, []);
+
+	return html`<div class="card">
     <div class="card-image">  
         <${StatusBage} todaysScore="20" totalScore="100" />
     </div>
@@ -157,14 +177,14 @@ const app = html`<div class="card">
         <${FilterForm} />
     </div>
     <div class="card-body">
-        <$${TasksLog} />
+        <$${TasksLog} tasks=${tasks}/>
     </div>
     <div class="card-footer">
         <${AddTaskForm} />
     </div>       
 </div>`;
-
-  render(app, document.getElementById('app'));
+}
+render(h(App), document.getElementById('app'));
 </script>
 </body>
 
