@@ -135,23 +135,14 @@ function FilterForm(props) {
 </div>`
 }
 
-class AddTaskForm extends Component {
-    state = { value: '' };
-    
-    constructor(props) {
-        super(props);
-        this.state = {
-        count: 0
-        };
-  }
-
-    onSubmit = e => {
+function AddTaskForm(props) {
+    const onSubmit = e => {
         alert("Submitted a task");
         e.preventDefault();
+    
     }
 
-    render(_, { value }) {
-        return html`
+    return html`
 <div class="input-group">
     <span class="input-group-addon">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
@@ -162,11 +153,8 @@ class AddTaskForm extends Component {
         </svg>
     </span>
     <input type="text" class="form-input" placeholder="..."/>
-    <button onClick=${this.onSubmit}  class="btn btn-primary input-group-btn">Add</button>
-</div>
-
-`
-    }
+    <button onClick=${onSubmit}  class="btn btn-primary input-group-btn">Add</button>
+</div>`
 }
 
 // App
