@@ -72,10 +72,10 @@ transform: scale(1);
 /* background: rgba(0, 113, 246, 0.2); */
 background-color: #d5def5;
 border-radius: 50%;
-height: 236px;
+height: 10rem;
 perspective: 600px;
 position: relative;
-width: 236px;
+width: 10rem;
 }
 .total_badge:before, .total_badge:after {
 -webkit-animation: pulseBadge 3s cubic-bezier(0.86, 0, 0.07, 1) 0s infinite both;
@@ -149,7 +149,7 @@ transform: translate(-50%, -50%) rotateY(20deg);
 color: #6643b5;
 font: 900 88px/1 -apple-system, BlinkMacSystemFont;
 left: 50%;
-font-size: 4em;
+font-size: 3em;
 position: absolute;
 text-align: center;
 text-shadow: 0px 4px 8px rgba(0, 113, 246, 0.2);
