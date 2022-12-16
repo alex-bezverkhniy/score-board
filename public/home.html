@@ -113,11 +113,11 @@ function FilterForm(props) {
 
     const { scoreData, fetchScoreData } = useContext(ScoreDataContext);
 
-    const onSubmit = (e) => {
-        // var url = localStorage.getItem('apiURL') ? localStorage.getItem('apiURL') : "/api/score"; //"/api/score"
-        console.log('filter submit', value);
+    const onSubmit = (e) => {        
+        // console.log('filter submit', value);
         const unixTime = Math.floor(Date.parse(value) / 1000)
         fetchScoreData(`${baseUrl}/${unixTime}`);
+        e.preventDefault();
     }
     const onInput = (e) => {
         setValue(e.target.value)
@@ -136,10 +136,12 @@ function FilterForm(props) {
 }
 
 function AddTaskForm(props) {
+    const { scoreData, fetchScoreData } = useContext(ScoreDataContext);
+
     const onSubmit = e => {
-        alert("Submitted a task");
+        console.log("AddTask");
+        fetchScoreData();
         e.preventDefault();
-    
     }
 
     return html`
