@@ -12,11 +12,24 @@ GET http://localhost:8080/api/score/1671037125/1671037135
 GET http://localhost:8080/api/score/1671037135
 
 
-### Put new score
+### Put new score by time
 PUT http://localhost:8080/api/score/1671037135
 Content-Type: application/json
 
 {
-    "points": 111,
+    "points": 222,
     "task": "TEST"
 }
+
+### Put new score
+PUT http://localhost:8080/api/score
+Content-Type: application/json
+
+{
+    "points": 333,
+    "task": "TEST-no time"
+}
+
+
+### Put new score by time
+DELETE  http://localhost:8080/api/score/1671037135

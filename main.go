@@ -68,6 +68,7 @@ func main() {
 	app.Get("/api/score/:starttime", store.GetAllHandler())
 	app.Put("/api/score/:time", store.PutHandler())
 	app.Put("/api/score/", store.PutHandler())
+	app.Delete("/api/score/:time", store.DeleteHandler())
 
 	app.Use(func(c *fiber.Ctx) error {
 		if websocket.IsWebSocketUpgrade(c) { // Returns true if the client requested upgrade to the WebSocket protocol
@@ -127,9 +128,10 @@ func NewStore(db *bolt.DB, backetName string) (*store, error) {
 	})
 	return st, err
 }
+
 func (st *store) PutHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		log.Println("gel all scores")
+		log.Println("put score")
 
 		putTimeStr := c.Params("time")
 
@@ -156,7 +158,27 @@ func (st *store) PutHandler() fiber.Handler {
 			return c.Status(fiber.StatusInternalServerError).Send([]byte("cannot put score"))
 		}
 
-		return c.Status(fiber.StatusOK).JSON(st)
+		return c.Status(fiber.StatusOK).JSON(val)
+	}
+}
+
+func (st *store) DeleteHandler() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		log.Println("delete score")
+
+		putTimeStr := c.Params("time")
+
+		key, err := strToUnixTime(putTimeStr)
+		if err != nil {
+			log.Println("ERROR: cannot parse start time ")
+			return c.Status(fiber.StatusBadRequest).Send([]byte("cannot parse start time"))
+		}
+
+		if err = st.Delete(*key); err != nil {
+			return c.Status(fiber.StatusInternalServerError).Send([]byte("cannot delete score"))
+		}
+
+		return c.Status(fiber.StatusOK).JSON(true)
 	}
 }
 
@@ -215,6 +237,15 @@ func (st *store) Get(key string, val interface{}) error {
 	return st.db.View(func(tx *bolt.Tx) error {
 		bytesVal := tx.Bucket(st.backetName).Get(bytesKey)
 		return json.Unmarshal(bytesVal, &val)
+	})
+}
+
+func (st *store) Delete(key time.Time) error {
+	log.Printf("DELETE: key: %v\n", key)
+	strKey := strconv.FormatInt(key.Unix(), 10)
+	bytesKey := []byte(strKey)
+	return st.db.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(st.backetName).Delete(bytesKey)
 	})
 }
 
