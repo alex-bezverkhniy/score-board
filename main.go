@@ -66,6 +66,8 @@ func main() {
 	app.Get("/api/score/", store.GetAllHandler())
 	app.Get("/api/score/:starttime/:endtime", store.GetAllHandler())
 	app.Get("/api/score/:starttime", store.GetAllHandler())
+	app.Put("/api/score/:time", store.PutHandler())
+	app.Put("/api/score/", store.PutHandler())
 
 	app.Use(func(c *fiber.Ctx) error {
 		if websocket.IsWebSocketUpgrade(c) { // Returns true if the client requested upgrade to the WebSocket protocol
@@ -124,6 +126,38 @@ func NewStore(db *bolt.DB, backetName string) (*store, error) {
 		return err
 	})
 	return st, err
+}
+func (st *store) PutHandler() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		log.Println("gel all scores")
+
+		putTimeStr := c.Params("time")
+
+		putTime, err := strToUnixTime(putTimeStr)
+		if err != nil {
+			log.Println("ERROR: cannot parse start time ")
+			return c.Status(fiber.StatusBadRequest).Send([]byte("cannot parse start time"))
+		}
+
+		if putTime == nil {
+			t := time.Now()
+			putTime = &t
+		}
+
+		val := score{}
+		if err := c.BodyParser(&val); err != nil {
+			return c.Status(fiber.StatusBadRequest).Send([]byte("cannot parse score payload"))
+		}
+		if (val.AddedAt == time.Time{}) {
+			val.AddedAt = *putTime
+		}
+
+		if err = st.Put(*putTime, val); err != nil {
+			return c.Status(fiber.StatusInternalServerError).Send([]byte("cannot put score"))
+		}
+
+		return c.Status(fiber.StatusOK).JSON(st)
+	}
 }
 
 func (st *store) GetAllHandler() fiber.Handler {
