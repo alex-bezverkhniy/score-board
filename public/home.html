@@ -136,27 +136,77 @@ function FilterForm(props) {
 }
 
 function AddTaskForm(props) {
+    const [value, setValue] = useState("");
+    const [hasError, setHasError] = useState(false);
     const { scoreData, fetchScoreData } = useContext(ScoreDataContext);
 
+    const isInt = (value) => {
+        return !isNaN(value) && 
+                parseInt(Number(value)) == value && 
+                !isNaN(parseInt(value, 10));
+    }
+
     const onSubmit = e => {
-        console.log("AddTask");
+        console.log("AddTask", value);
+
+        if (value) {
+            const i = value.indexOf(' ');            
+            if ( !isInt(value.substring(0, i))) {
+                setHasError(true);
+                return;
+            }
+            const points = parseInt(value.substring(0, i));
+            const task = value.substring(i+1);
+            console.log(`add new points: "${points}", task: "${task}"`);
+            if ( isNaN(points)) {
+                setHasError(true)
+            } else {
+                const score = {
+                    points: points,
+                    task: task
+                }
+                fetch(baseUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(score)
+                }).then((d) => {
+                    fetchScoreData();
+                    setHasError(false);
+                    setValue('');
+                })
+            }
+
+        } else {
+            setHasError(true);
+        }
+        // fetch(baseUrl)
+
         fetchScoreData();
         e.preventDefault();
     }
+    const onInput = (e) => {
+        setValue(e.target.value)
+    }
 
     return html`
-<div class="input-group">
-    <span class="input-group-addon">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
-            class="bi bi-journal-check" viewBox="0 0 16 16">
-            <path fill-rule="evenodd" d="M10.854 6.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 8.793l2.646-2.647a.5.5 0 0 1 .708 0z" />
-            <path d="M3 0h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-1h1v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v1H1V2a2 2 0 0 1 2-2z" />
-            <path d="M1 5v-.5a.5.5 0 0 1 1 0V5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1H1zm0 3v-.5a.5.5 0 0 1 1 0V8h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1H1zm0 3v-.5a.5.5 0 0 1 1 0v.5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1H1z" />
-        </svg>
-    </span>
-    <input type="text" class="form-input" placeholder="..."/>
-    <button onClick=${onSubmit}  class="btn btn-primary input-group-btn">Add</button>
-</div>`
+<div class="form-group ${hasError ? "has-error" : ""}">
+    <div class="input-group">
+        <span class="input-group-addon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                class="bi bi-journal-check" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M10.854 6.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 8.793l2.646-2.647a.5.5 0 0 1 .708 0z" />
+                <path d="M3 0h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-1h1v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v1H1V2a2 2 0 0 1 2-2z" />
+                <path d="M1 5v-.5a.5.5 0 0 1 1 0V5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1H1zm0 3v-.5a.5.5 0 0 1 1 0V8h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1H1zm0 3v-.5a.5.5 0 0 1 1 0v.5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1H1z" />
+            </svg>
+        </span>
+        <input type="text" value=${value} onInput=${onInput}class="form-input" placeholder="..."/>    
+        <button onClick=${onSubmit}  class="btn btn-primary input-group-btn">Add</button>
+    </div>
+    <p class="form-input-hint ${!hasError ? "d-hide" : ""}">Please use next format: [points] [task description]</p>
+</div>
+`
 }
 
 // App
