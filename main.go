@@ -22,6 +22,12 @@ type (
 		mu        sync.Mutex
 	}
 
+	response struct {
+		TotalPoints   int     `json:"total_points"`
+		TotalStartsAt int     `json:"total_starts_at"`
+		ScoreData     []score `json:"data"`
+	}
+
 	score struct {
 		AddedAt     time.Time `json:"added_at"`
 		Points      int       `json:"points"`
@@ -139,11 +145,19 @@ func (st *store) GetAllHandler() fiber.Handler {
 			return c.Status(fiber.StatusBadRequest).Send([]byte("cannot parse end time"))
 		}
 
+		totalPoints, err := st.GetTotalScore()
+		if err != nil {
+			log.Println("ERROR: cannot get total points", err)
+			return c.Context().Err()
+		}
+
 		res, err := st.GeScoresList(startTime, endTime)
 		if err != nil {
 			log.Println("ERROR: cannot get all scores", err)
 			return c.Context().Err()
 		}
+		res.TotalPoints = totalPoints
+
 		return c.Status(fiber.StatusOK).JSON(res)
 	}
 }
@@ -188,41 +202,47 @@ func (st *store) GetTotalScore() (int, error) {
 	return res, err
 }
 
-func (st *store) GeScoresList(startDate, endDate *time.Time) ([]score, error) {
+func (st *store) GeScoresList(startDate, endDate *time.Time) (response, error) {
 	log.Println("GET: list", startDate, endDate)
-	res := []score{}
+	scoresList := []score{}
+	total := 0
 	err := st.db.View(func(tx *bolt.Tx) error {
 		return tx.Bucket(st.backetName).ForEach(func(k, v []byte) error {
 			intKey, _ := strconv.Atoi(string(k))
 			// All
 			if startDate == nil && endDate == nil {
 				log.Printf("all key: %v, val: %v \n", intKey, string(v))
-				res = st.appendToResponse(res, k, v)
-
+				scoresList, total = st.appendToResponse(scoresList, total, k, v)
 				// Filter by start
 			} else if (startDate != nil && endDate == nil) && intKey >= int(startDate.Unix()) {
 				log.Printf("starts at %v ; key: %v, val: %v \n", int(startDate.Unix()), intKey, string(v))
-				res = st.appendToResponse(res, k, v)
+				scoresList, total = st.appendToResponse(scoresList, total, k, v)
 
 				// Filter by start and end dates
 			} else if intKey >= int(startDate.Unix()) && intKey <= int(endDate.Unix()) {
 				log.Printf("beetwen  %v - %v; key: %v, val: %v \n", int(startDate.Unix()), int(endDate.Unix()), intKey, string(v))
-				res = st.appendToResponse(res, k, v)
+				scoresList, total = st.appendToResponse(scoresList, total, k, v)
 
 				// 	// Filter by end dates
 				// } else if endDate != nil && intKey <= int(endDate.Unix()) {
-				// 	res = st.appendToResponse(res, v)
+				// 	scoresList = st.appendToResponse(scoresList, v)
 			}
 
 			return nil
 		})
 	})
-	reverse(res)
-	log.Printf("list: %v\n", res)
+	reverse(scoresList)
+	log.Printf("list: %v\n", scoresList)
+
+	res := response{
+		TotalStartsAt: total,
+		ScoreData:     scoresList,
+	}
+
 	return res, err
 }
 
-func (st *store) appendToResponse(res []score, k, v []byte) []score {
+func (st *store) appendToResponse(res []score, points int, k, v []byte) ([]score, int) {
 	s := score{}
 	err := json.Unmarshal(v, &s)
 	if err != nil {
@@ -234,7 +254,8 @@ func (st *store) appendToResponse(res []score, k, v []byte) []score {
 	}
 	s.AddedAt = time.Unix(int64(tUnix), 0)
 	res = append(res, s)
-	return res
+	points = points + s.Points
+	return res, points
 }
 
 func runHub(st *store) {

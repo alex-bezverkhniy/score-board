@@ -56,8 +56,8 @@
         </div>
     </footer>
 <script type="module">
-import { h, Component, render } from 'https://unpkg.com/preact@latest?module';
-import { useState, useEffect } from 'https://unpkg.com/preact@latest/hooks/dist/hooks.module.js?module';
+import { h, Component, render, createContext } from 'https://unpkg.com/preact@latest?module';
+import { useState, useMemo, useEffect, useContext } from 'https://unpkg.com/preact@latest/hooks/dist/hooks.module.js?module';
 import htm from 'https://unpkg.com/htm?module'
 // import { h, Component, render } from '/js/preact.module.js';
 // import { useState, useEffect } from 'https://unpkg.com/preact@latest/hooks/dist/hooks.module.js?module';
@@ -65,6 +65,8 @@ import htm from 'https://unpkg.com/htm?module'
   
 // Initialize htm with Preact
 const html = htm.bind(h);
+const ScoreDataContext = createContext({});
+const baseUrl = '/api/score'
 
 function StatusBage(props) {
   var todaysScoreSign = props.todaysScore > 0 ? "+":"-";
@@ -82,6 +84,7 @@ function StatusBage(props) {
 }
 
 function TasksLog (props) {        
+
     return html`
 <table class="table">
     <thead>
@@ -95,39 +98,52 @@ function TasksLog (props) {
         ${props.tasks.map((task, k) => html`
         <tr>
             <td>${task.task}</td>
-            <td>${task.points}</td>
-            <td>${k}</td>
+            <td>
+                <span class="chip">${task.points}</span>
+            </td>
+            <td>${task.added_at.replace("T", " ").replace("-06:00", "")}</td>
         </tr>
         `)}
     </tbody>
 </table>`    
 }
 
-class FilterForm extends Component {
-    state = { value: '' };
+function FilterForm(props) {
+    const [value, setValue] = useState(new Date(new Date().toString().split('GMT')[0]+' UTC').toISOString().split('.')[0])
 
-    onSubmit = e => {
-        alert("Submitted a filter");
-        e.preventDefault();
+    const { scoreData, fetchScoreData } = useContext(ScoreDataContext);
+
+    const onSubmit = (e) => {
+        // var url = localStorage.getItem('apiURL') ? localStorage.getItem('apiURL') : "/api/score"; //"/api/score"
+        console.log('filter submit', value);
+        const unixTime = Math.floor(Date.parse(value) / 1000)
+        fetchScoreData(`${baseUrl}/${unixTime}`);
+    }
+    const onInput = (e) => {
+        setValue(e.target.value)
     }
 
-    render(_, { value }) {
-        return html`
-<div class="input-group">
+    return html`
+    <div class="input-group">
     <span class="input-group-addon">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-funnel" viewBox="0 0 16 16">
             <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2zm1 .5v1.308l4.372 4.858A.5.5 0 0 1 7 8.5v5.306l2-.666V8.5a.5.5 0 0 1 .128-.334L13.5 3.308V2h-11z"/>
         </svg>                                
     </span>
-    <input type="datetime-local" class="form-input" placeholder="..."/>
-    <button onClick=${this.onSubmit} class="btn btn-primary input-group-btn">Filter</button>
-</div>
-`
-    }
+    <input type="datetime-local" value=${value} class="form-input" onInput=${onInput}/>
+    <button onClick=${onSubmit} class="btn btn-primary input-group-btn">Filter</button>
+</div>`
 }
 
 class AddTaskForm extends Component {
     state = { value: '' };
+    
+    constructor(props) {
+        super(props);
+        this.state = {
+        count: 0
+        };
+  }
 
     onSubmit = e => {
         alert("Submitted a task");
@@ -155,34 +171,59 @@ class AddTaskForm extends Component {
 
 // App
 function App() {
-	const [count, setCount] = useState(0);
-    const [tasks, setTasks] = useState([]);
-	useEffect(() => {
-		setCount(1);
-        fetch("/api/score")
+	const [scoreData, setScoreData] = useState({});
+
+    const [tasksData, setTasksData] = useState({
+        data: []        
+    });    
+
+    function fetchScoreData(url) {
+        console.log("fetchScoreData", url);
+        url = (url == null || url == undefined || url == "") ? scoreData.url : url
+        url = (url == null || url == undefined || url == "") ? baseUrl : url
+
+        fetch(url)
         .then((data) => {            
             return data.json()
         })
         .then((json) => {            
             console.log(json);
-            setTasks(json);       
+            const newScoreData = {
+                tasksData : json,
+                url: url
+            }
+            setScoreData(newScoreData);
+            setTasksData(json);
         });
+    }
+
+	useEffect(() => {
+        const url = localStorage.getItem('apiURL') ? localStorage.getItem('apiURL') : "/api/score"; //"/api/score"		
+        fetchScoreData();
 	}, []);
 
-	return html`<div class="card">
+	const scoreDataResource = useMemo(() => {
+		return { scoreData, fetchScoreData };
+	}, [scoreData]);
+
+	return html`
+<${ScoreDataContext.Provider} value=${scoreDataResource}>
+<div class="card">
     <div class="card-image">  
-        <${StatusBage} todaysScore="20" totalScore="100" />
+        <${StatusBage} todaysScore=${tasksData.total_starts_at} totalScore=${tasksData.total_points} />
     </div>
     <div class="card-header">
         <${FilterForm} />
     </div>
     <div class="card-body">
-        <$${TasksLog} tasks=${tasks}/>
+        <$${TasksLog} tasks=${tasksData.data}/>
     </div>
     <div class="card-footer">
         <${AddTaskForm} />
     </div>       
-</div>`;
+</div>
+</ScoreDataContext.Provider>
+`;
 }
 render(h(App), document.getElementById('app'));
 </script>
