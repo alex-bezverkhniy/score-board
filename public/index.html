@@ -38,34 +38,8 @@
     </style>
 </head>
 
-<body>
-    <header class="navbar">
-        <section class="navbar-section">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-award"
-            viewBox="0 0 16 16">
-                <path
-                    d="M9.669.864 8 0 6.331.864l-1.858.282-.842 1.68-1.337 1.32L2.6 6l-.306 1.854 1.337 1.32.842 1.68 1.858.282L8 12l1.669-.864 1.858-.282.842-1.68 1.337-1.32L13.4 6l.306-1.854-1.337-1.32-.842-1.68L9.669.864zm1.196 1.193.684 1.365 1.086 1.072L12.387 6l.248 1.506-1.086 1.072-.684 1.365-1.51.229L8 10.874l-1.355-.702-1.51-.229-.684-1.365-1.086-1.072L3.614 6l-.25-1.506 1.087-1.072.684-1.365 1.51-.229L8 1.126l1.356.702 1.509.229z" />
-                <path d="M4 11.794V16l4-1 4 1v-4.206l-2.018.306L8 13.126 6.018 12.1 4 11.794z" />
-            </svg>
-            <a href="..." class="navbar-brand mr-2">Eva's score</a>
-        </section>
-    </header>
-    <main>
-        <div class="container">
-            <div class="columns">
-                <div class="column col-4 col-md-10 col-xl-8 col-mx-auto" id="app">
-                </div>
-            </div>
-        </div>
-        
-    </main>
-    <footer>
-        <div class="columns">
-            <div class="column col-4 col-md-10 col-xl-8 col-mx-auto">
-                Eva's Score 
-            </div>
-        </div>
-    </footer>
+<body id="app">
+
 <script type="module">
 import { h, Component, render, createContext } from 'https://unpkg.com/preact@latest?module';
 import { useState, useMemo, useEffect, useContext } from 'https://unpkg.com/preact@latest/hooks/dist/hooks.module.js?module';
@@ -82,6 +56,21 @@ const baseUrl = '/api/score'
 function toUnixTimestamp(str) {
   return Math.floor(Date.parse(str) / 1000)
 }
+
+function Navigation(props) {
+  var todaysScoreSign = props.todaysScore > 0 ? "+":"-";
+  return html`
+  <section class="navbar-section">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-award"
+        viewBox="0 0 16 16">
+            <path
+                d="M9.669.864 8 0 6.331.864l-1.858.282-.842 1.68-1.337 1.32L2.6 6l-.306 1.854 1.337 1.32.842 1.68 1.858.282L8 12l1.669-.864 1.858-.282.842-1.68 1.337-1.32L13.4 6l.306-1.854-1.337-1.32-.842-1.68L9.669.864zm1.196 1.193.684 1.365 1.086 1.072L12.387 6l.248 1.506-1.086 1.072-.684 1.365-1.51.229L8 10.874l-1.355-.702-1.51-.229-.684-1.365-1.086-1.072L3.614 6l-.25-1.506 1.087-1.072.684-1.365 1.51-.229L8 1.126l1.356.702 1.509.229z" />
+            <path d="M4 11.794V16l4-1 4 1v-4.206l-2.018.306L8 13.126 6.018 12.1 4 11.794z" />
+        </svg>
+        <a href="#" class="navbar-brand mr-2">Eva's score</a>
+    </section>`;
+}
+
 
 function StatusBage(props) {
   var todaysScoreSign = props.todaysScore > 0 ? "+":"-";
@@ -377,20 +366,38 @@ function App() {
 
 	return html`
 <${ScoreDataContext.Provider} value=${scoreDataResource}>
-<div class="card">
-    <div class="card-image">  
-        <${StatusBage} todaysScore=${tasksData.total_starts_at} totalScore=${tasksData.total_points} />
+<header class="navbar">
+    <${Navigation}/>
+</header>
+<main>
+    <div class="container">
+        <div class="columns">
+            <div class="column col-4 col-md-10 col-xl-8 col-mx-auto">
+    <div class="card">
+        <div class="card-image">  
+            <${StatusBage} todaysScore=${tasksData.total_starts_at} totalScore=${tasksData.total_points} />
+        </div>
+        <div class="card-header">
+            <${FilterForm} />
+        </div>
+        <div class="card-body">
+            <$${TasksLog} tasks=${tasksData.data}/>
+        </div>
+        <div class="card-footer">
+            <${AddTaskForm} />
+        </div>       
     </div>
-    <div class="card-header">
-        <${FilterForm} />
+            </div>
+        </div>
+    </div>        
+</main>
+<footer>
+    <div class="columns">
+        <div class="column col-4 col-md-10 col-xl-8 col-mx-auto">
+            Eva's Score 
+        </div>
     </div>
-    <div class="card-body">
-        <$${TasksLog} tasks=${tasksData.data}/>
-    </div>
-    <div class="card-footer">
-        <${AddTaskForm} />
-    </div>       
-</div>
+</footer>
 </ScoreDataContext.Provider>
 `;
 }
