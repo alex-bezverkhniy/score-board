@@ -33,7 +33,7 @@
           overflow: auto;
         }
         td p {
-            width: 5rem;
+            width: 8rem;
             margin: 0;
             padding: 0;
             white-space:nowrap;
@@ -108,7 +108,10 @@ function Navigation(props) {
 
 
 function StatusBage(props) {
-  var todaysScoreSign = props.todaysScore > 0 ? "+":"-";
+  var todaysScoreSign = props.todaysScore >= 0 ? "+":"-";
+  if (props.todaysScore == 0) {
+    todaysScoreSign = "";
+  }
   return html`
 <div class="badge_container">
     <div class="total_badge">
@@ -191,7 +194,10 @@ function TasksLog (props) {
             <td>
               <span class="chip">${task.points}</span>
             </td>
-            <td><p title=${task.task}>${task.task}</p></td>
+            <td>
+                <span class="hide-sm" title=${task.task}>${task.task}</span>                
+                <p class="show-sm" title=${task.task}>${task.task}</p>
+            </td>
             <td style="min-width: 8rem;">${task.added_at.replace("T", " ").replace("-06:00", "")}</td>
             <td>                
               <a href="#" data-key=${toUnixTimestamp(task.added_at)} class="btn-sm btn-action s-circle" onClick=${onDelete}>
