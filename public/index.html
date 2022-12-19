@@ -425,7 +425,7 @@ function App() {
 
 	useEffect(() => {
         const url = localStorage.getItem('apiURL') ? localStorage.getItem('apiURL') : "/api/score"; //"/api/score"		
-        fetchScoreData();
+        useCalType('today')
 	}, []);
 
 	const scoreDataResource = useMemo(() => {
