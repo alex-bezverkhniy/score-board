@@ -99,21 +99,37 @@ function StatusBage(props) {
 }
 
 function DeleteDlg(props) {
+    const [show, setShow] = useState(props.show);
+    const { deleteScoreData, selectKey, selectedKey} = useContext(ScoreDataContext);
+
+    const onClose = (e) => {
+        //setShow(false);        
+        selectKey('');
+        e.preventDefault();
+    }
+
+    const onDelete = (e) => {
+        deleteScoreData(selectedKey)
+        selectKey('');
+        e.preventDefault();
+    }
+
     return html`
-<div class="modal active" id="modal-id">
-  <a href="#close" class="modal-overlay" aria-label="Close"></a>
+<div class="modal ${selectedKey != '' ? 'active' : 'd-hide'}" id="modal-id">
+  <a href="#close" onClick=${onClose} style="z-index:0;" class="modal-overlay" aria-label="Close"></a>
   <div class="modal-container">
     <div class="modal-header">
       <a href="#close" class="btn btn-clear float-right" aria-label="Close"></a>
-      <div class="modal-title h5">Modal title</div>
+      <div class="modal-title h5">Delete task: ${props.show}</div>
     </div>
     <div class="modal-body">
       <div class="content">
-        <!-- content here -->
+        Are you sure you want to delete the task?
       </div>
     </div>
     <div class="modal-footer">
-      ...
+        <button class="btn btn-primary" onClick=${onDelete}>Yes</button>
+        <button class="btn btn-link" onClick=${onClose}>No</button>
     </div>
   </div>
 </div>
@@ -121,14 +137,15 @@ function DeleteDlg(props) {
 }
 
 function TasksLog (props) {        
-    const { deleteScoreData} = useContext(ScoreDataContext);
+    const [key, setKey] = useState('');
+    const { selectKey} = useContext(ScoreDataContext);    
 
-  const onDelete = (e) => {    
-    const k = e.target.dataset.key
-    console.log('delete', k);
-    deleteScoreData(k);
-    e.preventDefault()
-  }
+    const onDelete = (e) => {    
+        const k = e.target.dataset.key
+        console.log('delete', k);
+        selectKey(k);        
+        e.preventDefault()
+    }
 
 
   return html`
@@ -152,7 +169,7 @@ function TasksLog (props) {
             </td>
             <td>${task.task}</td>
             <td>${task.added_at.replace("T", " ").replace("-06:00", "")}</td>
-            <td>
+            <td>                
               <a href="#" data-key=${toUnixTimestamp(task.added_at)} class="btn-sm btn-action s-circle" onClick=${onDelete}>
                 <i class="icon icon-close" data-key=${toUnixTimestamp(task.added_at)}></i>
               </a>
@@ -161,7 +178,7 @@ function TasksLog (props) {
         `)}
     </tbody>
 </table>
-
+<${DeleteDlg} show=${key != ''}></DeleteDlg>
 </div>`    
 }
 
@@ -304,11 +321,16 @@ function AddTaskForm(props) {
 
 // App
 function App() {
-	const [scoreData, setScoreData] = useState({});
+	const [ scoreData, setScoreData] = useState({});
 
     const [tasksData, setTasksData] = useState({
         data: []        
     });    
+	const [ selectedKey, setSelectedKey] = useState('');    
+
+    function selectKey(key) {
+        setSelectedKey(key);
+    }
 
     function fetchScoreData(url) {
         console.log("fetchScoreData", url);
@@ -350,8 +372,8 @@ function App() {
 	}, []);
 
 	const scoreDataResource = useMemo(() => {
-		return { scoreData, fetchScoreData, deleteScoreData };
-	}, [scoreData]);
+		return { selectedKey, scoreData, fetchScoreData, deleteScoreData, selectKey};
+	}, [scoreData, selectedKey]);
 
 	return html`
 <${ScoreDataContext.Provider} value=${scoreDataResource}>
