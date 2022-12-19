@@ -32,9 +32,6 @@
           max-height: 10rem;
           overflow: auto;
         }
-        .delete-btn {
-
-        }
     </style>
 </head>
 
@@ -58,16 +55,46 @@ function toUnixTimestamp(str) {
 }
 
 function Navigation(props) {
-  var todaysScoreSign = props.todaysScore > 0 ? "+":"-";
-  return html`
-  <section class="navbar-section">
-        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-award"
-        viewBox="0 0 16 16">
-            <path
-                d="M9.669.864 8 0 6.331.864l-1.858.282-.842 1.68-1.337 1.32L2.6 6l-.306 1.854 1.337 1.32.842 1.68 1.858.282L8 12l1.669-.864 1.858-.282.842-1.68 1.337-1.32L13.4 6l.306-1.854-1.337-1.32-.842-1.68L9.669.864zm1.196 1.193.684 1.365 1.086 1.072L12.387 6l.248 1.506-1.086 1.072-.684 1.365-1.51.229L8 10.874l-1.355-.702-1.51-.229-.684-1.365-1.086-1.072L3.614 6l-.25-1.506 1.087-1.072.684-1.365 1.51-.229L8 1.126l1.356.702 1.509.229z" />
-            <path d="M4 11.794V16l4-1 4 1v-4.206l-2.018.306L8 13.126 6.018 12.1 4 11.794z" />
-        </svg>
-        <a href="#" class="navbar-brand mr-2">Eva's score</a>
+    const {calType, useCalType} = useContext(ScoreDataContext);
+
+    const onAll = (e) => {
+        useCalType('all');
+        e.preventDefault();
+    }
+
+    const onMonth = (e) => {
+        useCalType('month');
+        e.preventDefault();
+    }
+
+    const onWeek = (e) => {
+        useCalType('week');
+        e.preventDefault();
+    }
+
+    const onToday = (e) => {
+        useCalType('today');
+        e.preventDefault();
+    }
+
+    const isActive = (val) => {
+        console.log(val, calType);
+        return calType != val ? 'btn-link' : 'btn-primary';
+    }
+
+    return html`
+    <section class="navbar-section">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-award"
+            viewBox="0 0 16 16">
+                <path
+                    d="M9.669.864 8 0 6.331.864l-1.858.282-.842 1.68-1.337 1.32L2.6 6l-.306 1.854 1.337 1.32.842 1.68 1.858.282L8 12l1.669-.864 1.858-.282.842-1.68 1.337-1.32L13.4 6l.306-1.854-1.337-1.32-.842-1.68L9.669.864zm1.196 1.193.684 1.365 1.086 1.072L12.387 6l.248 1.506-1.086 1.072-.684 1.365-1.51.229L8 10.874l-1.355-.702-1.51-.229-.684-1.365-1.086-1.072L3.614 6l-.25-1.506 1.087-1.072.684-1.365 1.51-.229L8 1.126l1.356.702 1.509.229z" />
+                <path d="M4 11.794V16l4-1 4 1v-4.206l-2.018.306L8 13.126 6.018 12.1 4 11.794z" />
+            </svg>
+            <a href="#" class="navbar-brand mr-2">Eva's score</a>
+            <a href="#" class="btn ${isActive('all')}" onClick=${onAll}>All</a>
+            <a href="#" class="btn ${isActive('month')}" onClick=${onMonth}>Month</a>
+            <a href="#" class="btn ${isActive('week')}" onClick=${onWeek}>Week</a>
+            <a href="#" class="btn ${isActive('today')}" onClick=${onToday}>Today</a>
     </section>`;
 }
 
@@ -315,7 +342,48 @@ function App() {
     const [tasksData, setTasksData] = useState({
         data: []        
     });    
-	const [ selectedKey, setSelectedKey] = useState('');    
+	const [ selectedKey, setSelectedKey] = useState('');
+    const [ calType, setCalType] = useState('today');    
+
+    function getFirstDayOfWeek(d) {
+        d = new Date(d);
+        var day = d.getDay(),
+            diff = d.getDate() - day + (day == 0 ? -6:1); // adjust when day is sunday
+        return new Date(d.setDate(diff));
+    }
+
+    function getFirstDayOfMonth(d) {    
+        d.setSeconds(1);
+        return new Date(`${new Date().getFullYear()}-${new Date().getMonth()+1}-01`);
+    }
+
+    function useCalType(t) {
+        console.log('cal type', t);
+        setCalType(t);
+        let url = baseUrl;
+        let d = new Date();
+        d.setHours(0);
+        d.setMinutes(0);
+        d.setSeconds(0);
+        switch(t) {
+            case 'today':                
+                console.log(t, d.toISOString());                
+                fetchScoreData(`${baseUrl}/${toUnixTimestamp(d.toISOString())}`);
+                break;
+            case 'week':
+                d = getFirstDayOfWeek(d);
+                console.log(t, d.toISOString());                
+                fetchScoreData(`${baseUrl}/${toUnixTimestamp(d.toISOString())}`);
+                break;
+            case 'month':
+                d = getFirstDayOfMonth(d);
+                console.log(t, d.toISOString());
+                fetchScoreData(`${baseUrl}/${toUnixTimestamp(d.toISOString())}`);
+                break;
+            default:
+                fetchScoreData(url)
+        }
+    }
 
     function selectKey(key) {
         setSelectedKey(key);
@@ -361,8 +429,8 @@ function App() {
 	}, []);
 
 	const scoreDataResource = useMemo(() => {
-		return { selectedKey, scoreData, fetchScoreData, deleteScoreData, selectKey};
-	}, [scoreData, selectedKey]);
+		return { selectedKey, scoreData, fetchScoreData, deleteScoreData, selectKey, calType, useCalType};
+	}, [scoreData, selectedKey, calType]);
 
 	return html`
 <${ScoreDataContext.Provider} value=${scoreDataResource}>
@@ -374,6 +442,9 @@ function App() {
         <div class="columns">
             <div class="column col-4 col-md-10 col-xl-8 col-mx-auto">
     <div class="card">
+        <div class="card-header">
+            <div class="card-title h5" style="text-transform: capitalize;">${calType}</div>
+        </div>
         <div class="card-image">  
             <${StatusBage} todaysScore=${tasksData.total_starts_at} totalScore=${tasksData.total_points} />
         </div>
