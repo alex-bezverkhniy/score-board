@@ -2,6 +2,10 @@
 GET http://localhost:8080/api/score
 
 
+### GET all proxy
+
+GET http://localhost:5173/api/score
+
 ### Get beetwen
 
 GET http://localhost:8080/api/score/1671037125/1671037135
