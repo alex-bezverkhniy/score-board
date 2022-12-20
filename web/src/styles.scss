@@ -1,0 +1,26 @@
+footer {
+    /* margin-top: 1rem; */
+    color: #ccc;
+}
+td {
+  font-size: 0.7rem;
+}
+.card-image {
+    margin-top: 1rem;
+    margin-bottom: 2rem;
+}
+.navbar-section {
+    padding: 1em;
+}
+.with-v-scroll {
+  max-height: 10rem;
+  overflow: auto;
+}
+td p {
+    width: 8rem;
+    margin: 0;
+    padding: 0;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}

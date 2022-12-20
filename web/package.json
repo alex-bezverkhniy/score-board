@@ -1,0 +1,22 @@
+{
+    "name": "WebIU",
+    "description": "UI for score board",
+    "version": "0.0.0",
+    "private": "true",
+    "license": "MIT",
+    "source": "src/index.html",
+    "scripts": {
+        "start": "parcel src/index.html",
+        "build": "parcel build src/index.html"
+    },
+    "devDependencies": {
+        "parcel": "latest",
+        "parcel-bundler": "^1.12.5",
+        "sass": "^1.57.1",
+        "typescript": "^4.9.4"
+    },
+    "dependencies": {
+        "preact": "^10.11.3",
+        "spectre.css": "^0.5.9"
+    }
+}
