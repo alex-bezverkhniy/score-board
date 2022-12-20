@@ -139,7 +139,7 @@ export function App() {
       <footer>
         <div class="columns">
           <div class="column col-4 col-md-10 col-xl-8 col-mx-auto">
-            Eva's Score
+            Score Board
           </div>
         </div>
       </footer>
