@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks'
 import './app.css'
 import 'spectre.css'
+import 'spectre.css/dist/spectre-icons.css'
 import { Navigation } from './components/Navigation';
 import { StatusBage } from './components/StatusBage';
 import { FilterForm } from './components/FilterForm';
