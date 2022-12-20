@@ -1,6 +1,8 @@
 import { createContext } from "preact";
 
-export const ScoreDataContext = createContext({});
+export const ScoreDataContext = createContext({
+    selectedKey: ''
+});
 export const baseUrl = '/api/score'
 
 export class Score {
