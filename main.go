@@ -1,16 +1,20 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"errors"
 	"flag"
+	"io/fs"
 	"log"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/gofiber/websocket/v2"
 	bolt "go.etcd.io/bbolt"
 )
@@ -46,7 +50,17 @@ var register = make(chan *websocket.Conn)
 var broadcast = make(chan string)
 var unregister = make(chan *websocket.Conn)
 
+// Embed a directory
+//go:embed dist-web/*.*
+//go:embed dist-web/*/*.*
+var embedDirWebFS embed.FS
+
 func main() {
+	// Sub
+	webFS, err := fs.Sub(embedDirWebFS, "dist-web")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Create and connect to DB
 	db, err := bolt.Open("score.db", 0600, nil)
@@ -62,7 +76,7 @@ func main() {
 
 	app := fiber.New()
 
-	app.Static("/", "./public")
+	// app.Static("/", "./dist-web")
 	app.Get("/api/score/", store.GetAllHandler())
 	app.Get("/api/score/:starttime/:endtime", store.GetAllHandler())
 	app.Get("/api/score/:starttime", store.GetAllHandler())
@@ -70,43 +84,49 @@ func main() {
 	app.Put("/api/score/", store.PutHandler())
 	app.Delete("/api/score/:time", store.DeleteHandler())
 
-	app.Use(func(c *fiber.Ctx) error {
-		if websocket.IsWebSocketUpgrade(c) { // Returns true if the client requested upgrade to the WebSocket protocol
-			return c.Next()
-		}
-		return c.SendStatus(fiber.StatusUpgradeRequired)
-	})
-
-	go runHub(store)
-
-	app.Get("/ws", websocket.New(func(c *websocket.Conn) {
-		// When the function returns, unregister the client and close the connection
-		defer func() {
-			unregister <- c
-			c.Close()
-		}()
-
-		// Register the client
-		register <- c
-
-		for {
-			messageType, message, err := c.ReadMessage()
-			if err != nil {
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-					log.Println("read error:", err)
-				}
-
-				return // Calls the deferred function, i.e. closes the connection on error
-			}
-
-			if messageType == websocket.TextMessage {
-				// Broadcast the received message
-				broadcast <- string(message)
-			} else {
-				log.Println("websocket message received of type", messageType)
-			}
-		}
+	// Serve Single Page application
+	app.Use("/", filesystem.New(filesystem.Config{
+		Root:         http.FS(webFS),
+		NotFoundFile: "index.html",
 	}))
+
+	// app.Use(func(c *fiber.Ctx) error {
+	// 	if websocket.IsWebSocketUpgrade(c) { // Returns true if the client requested upgrade to the WebSocket protocol
+	// 		return c.Next()
+	// 	}
+	// 	return c.SendStatus(fiber.StatusUpgradeRequired)
+	// })
+
+	// go runHub(store)
+
+	// app.Get("/ws", websocket.New(func(c *websocket.Conn) {
+	// 	// When the function returns, unregister the client and close the connection
+	// 	defer func() {
+	// 		unregister <- c
+	// 		c.Close()
+	// 	}()
+
+	// 	// Register the client
+	// 	register <- c
+
+	// 	for {
+	// 		messageType, message, err := c.ReadMessage()
+	// 		if err != nil {
+	// 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+	// 				log.Println("read error:", err)
+	// 			}
+
+	// 			return // Calls the deferred function, i.e. closes the connection on error
+	// 		}
+
+	// 		if messageType == websocket.TextMessage {
+	// 			// Broadcast the received message
+	// 			broadcast <- string(message)
+	// 		} else {
+	// 			log.Println("websocket message received of type", messageType)
+	// 		}
+	// 	}
+	// }))
 
 	addr := flag.String("addr", ":8080", "http service address")
 	flag.Parse()
