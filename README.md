@@ -1,5 +1,8 @@
 # score-board - Simple Score board 
 
+Simple app to track score
+![](./doc/mobile-home.png)
+
 ## Features
 
 - Use one line command to add/report new score/task
